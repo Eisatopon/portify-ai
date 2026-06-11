@@ -1,181 +1,205 @@
 import { NextResponse } from 'next/server'
 
-const POSOKANEI_BASE = process.env.POSOKANEI_API_URL || 'https://api.posokanei.gov.gr'
-const POSOKANEI_KEY  = process.env.POSOKANEI_API_KEY || ''
-const DEFAULT_TIMEOUT = 8000
+const OPENAI_KEY = process.env.OPENAI_API_KEY || ''
+const DEFAULT_TIMEOUT = 15000
 
-if (!POSOKANEI_KEY) {
-  console.warn('[fthinatora/api] Missing POSOKANEI_API_KEY')
-}
-
-const DEFAULT_HEADERS = {
-  'Content-Type': 'application/json',
-  ...(POSOKANEI_KEY && { 'x-api-key': POSOKANEI_KEY }),
-}
-
-const ACTIONS = {
-  SEARCH:  'search',
-  PRICES:  'prices',
-  BASKET:  'basket',
-  OFFERS:  'offers',
-  STATUS:  'status',
-}
-
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-const clamp = (value, def, min = 1, max = 50) => {
-  const n = Number(value)
-  return Math.min(Math.max(isNaN(n) ? def : n, min), max)
+if (!OPENAI_KEY) {
+  console.warn('[fthinatora/api] Missing OPENAI_API_KEY')
 }
 
 function errorResponse(message, status = 500) {
   return NextResponse.json({ error: message }, { status })
 }
 
-async function posokaneiGet(path, params = {}, revalidate = 3600) {
+// ─── OpenAI helper ────────────────────────────────────────────────────────────
+
+async function askOpenAI(systemPrompt, userPrompt, maxTokens = 800) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT)
 
   try {
-    const url = new URL(`${POSOKANEI_BASE}${path}`)
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
-
-    const res = await fetch(url.toString(), {
-      headers: DEFAULT_HEADERS,
-      signal: controller.signal,
-      next: { revalidate, tags: [path.replace(/\//g, '-').slice(1)] },
-    })
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new Error(`PosoKanei error ${res.status}: ${text}`)
-    }
-
-    return res.json()
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-async function posokaneiPost(path, body = {}) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT)
-
-  try {
-    const res = await fetch(`${POSOKANEI_BASE}${path}`, {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: DEFAULT_HEADERS,
-      body: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: maxTokens,
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userPrompt },
+        ],
+      }),
       signal: controller.signal,
     })
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new Error(`PosoKanei error ${res.status}: ${text}`)
-    }
-
-    return res.json()
+    if (!res.ok) throw new Error(`OpenAI error ${res.status}`)
+    const data = await res.json()
+    const text = data.choices?.[0]?.message?.content || '{}'
+    return JSON.parse(text)
   } finally {
     clearTimeout(timer)
   }
 }
 
-// ─── action handlers ─────────────────────────────────────────────────────────
+// ─── Search ───────────────────────────────────────────────────────────────────
 
-async function handleSearch(req, searchParams) {
-  const q     = searchParams.get('q')?.trim()
-  const limit = clamp(searchParams.get('limit'), 20)
+async function handleSearch(searchParams) {
+  const q = searchParams.get('q')?.trim()
+  if (!q || q.length < 2) return NextResponse.json({ products: [] })
 
-  if (!q || q.length < 2) {
-    return NextResponse.json({ products: [] })
-  }
+  const data = await askOpenAI(
+    `Είσαι βοηθός σύγκρισης τιμών ελληνικών σούπερ μάρκετ. 
+     Επίστρεψε ΜΟΝΟ έγκυρο JSON χωρίς markdown.`,
+    `Βρες προϊόντα που ταιριάζουν με την αναζήτηση: "${q}"
+     Επίστρεψε JSON με αυτή τη δομή:
+     {
+       "products": [
+         { "id": "unique_id", "name": "Πλήρες όνομα προϊόντος", "category": "Κατηγορία", "brand": "Brand" }
+       ]
+     }
+     Μέγιστο 8 προϊόντα. Τα ονόματα στα ελληνικά.`,
+    400
+  )
 
-  const data = await posokaneiGet('/products/search', { q, limit }, 300)
-  return NextResponse.json({ products: data.results ?? [] })
+  return NextResponse.json({ products: data.products ?? [] })
 }
 
-async function handlePrices(req, searchParams) {
-  const productId = searchParams.get('productId')
+// ─── Prices ───────────────────────────────────────────────────────────────────
+
+async function handlePrices(searchParams) {
+  const productId   = searchParams.get('productId')
+  const productName = searchParams.get('productName') || productId
 
   if (!productId) return errorResponse('Λείπει το productId', 400)
 
-  const data = await posokaneiGet(`/products/${productId}/prices`, {}, 1800)
+  const data = await askOpenAI(
+    `Είσαι ειδικός στις τιμές ελληνικών σούπερ μάρκετ.
+     Δίνεις ρεαλιστικές ενδεικτικές τιμές βάσει γνώσης σου.
+     Επίστρεψε ΜΟΝΟ έγκυρο JSON χωρίς markdown.`,
+    `Δώσε ενδεικτικές τιμές για το προϊόν: "${productName}"
+     στα παρακάτω ελληνικά σούπερ μάρκετ: Σκλαβενίτης, Lidl, ΑΒ Βασιλόπουλος, My Market, Μασούτης, Market In, Γαλαξίας.
+     
+     Επίστρεψε JSON:
+     {
+       "prices": [
+         {
+           "supermarketId": "sklavenitis",
+           "supermarketName": "Σκλαβενίτης",
+           "currentPrice": 2.49,
+           "oldPrice": null,
+           "isEuropean": false
+         }
+       ]
+     }
+     
+     Κανόνες:
+     - Οι τιμές να είναι ρεαλιστικές για την Ελλάδα
+     - Κάποιες φορές βάλε oldPrice (παλιά τιμή) για να δείξεις έκπτωση
+     - Ταξινόμησε από φθηνότερο προς ακριβότερο
+     - isEuropean: false για όλα`,
+    600
+  )
+
   return NextResponse.json({ prices: data.prices ?? [] })
 }
 
-async function handleOffers(req, searchParams) {
-  const limit = clamp(searchParams.get('limit'), 10)
+// ─── Offers ───────────────────────────────────────────────────────────────────
 
-  const data = await posokaneiGet('/products/offers', { limit }, 1800)
+async function handleOffers(searchParams) {
+  const data = await askOpenAI(
+    `Είσαι ειδικός προσφορών ελληνικών σούπερ μάρκετ.
+     Επίστρεψε ΜΟΝΟ έγκυρο JSON χωρίς markdown.`,
+    `Δώσε 3 τυπικές προσφορές που βρίσκονται αυτή την εποχή στα ελληνικά σούπερ μάρκετ.
+     
+     Επίστρεψε JSON:
+     {
+       "offers": [
+         {
+           "id": "offer_1",
+           "name": "Όνομα προϊόντος",
+           "supermarketId": "sklavenitis",
+           "supermarketName": "Σκλαβενίτης",
+           "currentPrice": 4.99,
+           "oldPrice": 6.90
+         }
+       ]
+     }
+     
+     Χρησιμοποίησε διαφορετικά σούπερ μάρκετ για κάθε προσφορά.
+     Supermarket IDs: sklavenitis, lidl, ab, mymarket, masoutis, marketin, galaxias`,
+    400
+  )
+
   return NextResponse.json({ offers: data.offers ?? [] })
 }
 
-async function handleBasket(req, searchParams) {
+// ─── Basket ───────────────────────────────────────────────────────────────────
+
+async function handleBasket(req) {
   let body
-  try {
-    body = await req.json()
-  } catch {
-    return errorResponse('Μη έγκυρο JSON', 400)
-  }
+  try { body = await req.json() } catch { return errorResponse('Μη έγκυρο JSON', 400) }
 
-  const { productIds } = body
+  const { items } = body
+  if (!Array.isArray(items) || items.length === 0) return errorResponse('Λείπουν τα items', 400)
 
-  if (!Array.isArray(productIds) || productIds.length === 0) {
-    return errorResponse('Λείπουν τα productIds', 400)
-  }
-  if (productIds.length > 50) {
-    return errorResponse('Μέγιστο 50 προϊόντα ανά αίτημα', 400)
-  }
-  if (!productIds.every((id) => typeof id === 'string')) {
-    return errorResponse('Μη έγκυρα productIds', 400)
-  }
+  const itemsList = items.map(i => `- ${i.name} x${i.quantity || 1}`).join('\n')
 
-  const data = await posokaneiPost('/basket/compare', { productIds })
+  const data = await askOpenAI(
+    `Είσαι ειδικός σύγκρισης τιμών ελληνικών σούπερ μάρκετ.
+     Επίστρεψε ΜΟΝΟ έγκυρο JSON χωρίς markdown.`,
+    `Υπολόγισε το συνολικό κόστος αυτών των προϊόντων σε κάθε ελληνικό σούπερ μάρκετ:
+     
+     ${itemsList}
+     
+     Σούπερ μάρκετ: Σκλαβενίτης, Lidl, ΑΒ Βασιλόπουλος, My Market, Μασούτης, Market In, Γαλαξίας
+     
+     Επίστρεψε JSON:
+     {
+       "totals": {
+         "sklavenitis": { "name": "Σκλαβενίτης", "total": 15.40 },
+         "lidl":        { "name": "Lidl",         "total": 13.20 },
+         "ab":          { "name": "ΑΒ Βασιλόπουλος", "total": 14.80 },
+         "mymarket":    { "name": "My Market",    "total": 15.10 },
+         "masoutis":    { "name": "Μασούτης",     "total": 13.90 },
+         "marketin":    { "name": "Market In",    "total": 14.50 },
+         "galaxias":    { "name": "Γαλαξίας",     "total": 15.80 }
+       }
+     }
+     
+     Οι τιμές να είναι ρεαλιστικές. Ταξινόμησε εσωτερικά από φθηνότερο.`,
+    500
+  )
+
   return NextResponse.json({ totals: data.totals ?? {} })
 }
 
-async function handleStatus(req, searchParams) {
-  const health = await posokaneiGet('/health').catch(() => null)
-  return NextResponse.json({
-    api: health ? 'up' : 'down',
-    timestamp: new Date().toISOString(),
-  })
-}
-
-// ─── dispatcher ──────────────────────────────────────────────────────────────
-
-const HANDLERS = {
-  [ACTIONS.SEARCH]:  handleSearch,
-  [ACTIONS.PRICES]:  handlePrices,
-  [ACTIONS.OFFERS]:  handleOffers,
-  [ACTIONS.BASKET]:  handleBasket,
-  [ACTIONS.STATUS]:  handleStatus,
-}
+// ─── Dispatcher ───────────────────────────────────────────────────────────────
 
 async function dispatch(req) {
   const { searchParams } = req.nextUrl
   const action = searchParams.get('action')
 
-  const handler = HANDLERS[action]
-  if (!handler) return errorResponse('Άγνωστη action', 400)
-
   try {
-    return await handler(req, searchParams)
+    if (action === 'search')  return await handleSearch(searchParams)
+    if (action === 'prices')  return await handlePrices(searchParams)
+    if (action === 'offers')  return await handleOffers(searchParams)
+    if (action === 'basket')  return await handleBasket(req)
+    if (action === 'status')  return NextResponse.json({ api: 'up', powered_by: 'openai' })
+    return errorResponse('Άγνωστη action', 400)
   } catch (err) {
-    console.error('[fthinatora/api]', {
-      action,
-      message: err.message,
-      stack: err.stack,
-    })
-    const message =
+    console.error('[fthinatora/api]', err.message)
+    return errorResponse(
       process.env.NODE_ENV === 'production'
         ? 'Σφάλμα επικοινωνίας με την υπηρεσία'
         : err.message
-    return errorResponse(message)
+    )
   }
 }
-
-// ─── exports ─────────────────────────────────────────────────────────────────
 
 export const GET  = dispatch
 export const POST = dispatch
