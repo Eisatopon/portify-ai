@@ -4,7 +4,7 @@ import PortifyHeader from '@/src/ui/components/PortifyHeader'
 import { memo, useState } from 'react'
 import { useProducts } from './hooks/useProducts'
 import { useBasket } from './hooks/useBasket'
-import { GREEK_SUPERMARKETS, EUROPEAN_SUPERMARKETS } from '@/src/data/supermarkets'
+import { GREEK_SUPERMARKETS, EUROPEAN_SUPERMARKETS, getFlag } from '@/src/data/supermarkets'
 
 const QUICK_SUGGESTIONS = [
   'Γάλα Νουνού',
@@ -32,7 +32,7 @@ const MarketChips = memo(function MarketChips() {
       </div>
       {EUROPEAN_SUPERMARKETS.map((s) => (
         <span key={s.id} className="chip chip-eu">
-          {s.flag} {s.shortName}
+          {getFlag(s.country)} {s.shortName}
         </span>
       ))}
     </div>

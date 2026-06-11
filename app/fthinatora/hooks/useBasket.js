@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react'
 import { getBasketPrices, calcDiscount } from '../services/priceService'
-import { ALL_SUPERMARKETS } from '@/src/data/supermarkets'
+import { ALL_SUPERMARKETS, getFlag } from '@/src/data/supermarkets'
 
 // ─── helper ───────────────────────────────────────────────────────────────────
 
@@ -128,7 +128,7 @@ export function useBasket() {
           id,
           name:  store?.name  || id,
           color: store?.color || '#888',
-          flag:  store?.flag  || '',
+          flag:  store ? getFlag(store.country) : '',
           total,
         }
       })
