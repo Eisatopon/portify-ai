@@ -214,6 +214,12 @@ function BasketPanel({ basket }) {
           <button className="clear-link focus-ring" onClick={clearBasket}>Καθαρισμός</button>
         )}
       </div>
+      {isEmpty && (
+        <p className="basket-hint">
+          <i className="ti ti-info-circle" aria-hidden="true" />
+          Πρόσθεσε πολλά προϊόντα και δες πού κοστίζει λιγότερο το σύνολο
+        </p>
+      )}
       {isEmpty ? (
         <p className="basket-empty">Πρόσθεσε προϊόντα για σύγκριση τιμών</p>
       ) : (

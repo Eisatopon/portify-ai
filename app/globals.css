@@ -1017,3 +1017,23 @@ body {
 }
 .fthinatora-page .fthinatora-search-section .search-result-btn:hover { background: var(--background); }
 .fthinatora-page .fthinatora-search-section .result-cat { font-size: 11px; color: var(--text-muted); }
+
+.fthinatora-page .basket-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: .5rem .75rem;
+  background: var(--background);
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border);
+  margin-bottom: .75rem;
+}
+.fthinatora-page .basket-hint i {
+  color: var(--accent-success);
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
