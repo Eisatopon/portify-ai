@@ -1037,3 +1037,115 @@ body {
   flex-shrink: 0;
   margin-top: 1px;
 }
+
+/* ─── KPI Block ─────────────────────────────────────────────────────────────── */
+.fthinatora-page .fthinatora-kpi {
+  background: var(--accent-success);
+  border-bottom: 4px solid #111;
+  padding: 2rem;
+}
+.fthinatora-page .fthinatora-kpi-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+.fthinatora-page .fthinatora-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.75);
+  margin-bottom: 0.5rem;
+}
+.fthinatora-page .fthinatora-kpi-value {
+  font-size: clamp(2.8rem,6vw,4rem);
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.fthinatora-page .fthinatora-kpi-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 0.4rem;
+}
+
+/* ─── Empty state suggestions ───────────────────────────────────────────────── */
+.fthinatora-page .empty-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 1rem;
+  align-items: center;
+}
+.fthinatora-page .empty-suggestions-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  width: 100%;
+  text-align: center;
+  margin-bottom: 4px;
+}
+.fthinatora-page .suggestion-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--accent-success);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.fthinatora-page .suggestion-btn:hover {
+  background: var(--brand-green-light);
+  border-color: var(--accent-success);
+}
+
+/* ─── btn-add success state ─────────────────────────────────────────────────── */
+.fthinatora-page .btn-add-success {
+  background: #145c37 !important;
+}
+
+/* ─── Remove button ─────────────────────────────────────────────────────────── */
+.fthinatora-page .btn-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+.fthinatora-page .btn-remove:hover { color: var(--accent-danger); }
+
+/* ─── Sticky progress bar ───────────────────────────────────────────────────── */
+.fthinatora-page .sticky-progress {
+  position: sticky;
+  top: 68px;
+  z-index: 90;
+  background: #111;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 1.5rem;
+  font-size: 13px;
+  border-bottom: 2px solid var(--accent-success);
+}
+.fthinatora-page .sticky-progress strong { color: var(--accent-gold); }
+.fthinatora-page .sticky-progress button {
+  background: var(--accent-success);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}

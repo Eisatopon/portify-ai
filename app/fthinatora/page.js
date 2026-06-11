@@ -1,10 +1,18 @@
 'use client'
 
 import PortifyHeader from '@/src/ui/components/PortifyHeader'
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { useProducts } from './hooks/useProducts'
 import { useBasket } from './hooks/useBasket'
 import { GREEK_SUPERMARKETS, EUROPEAN_SUPERMARKETS } from '@/src/data/supermarkets'
+
+const QUICK_SUGGESTIONS = [
+  'Γάλα Νουνού',
+  'Nescafé Classic',
+  'Coca-Cola 1.5L',
+  'Μακαρόνια MISKO',
+  'Ελαιόλαδο Minerva',
+]
 
 // ─── MarketChips ──────────────────────────────────────────────────────────────
 
@@ -31,6 +39,20 @@ const MarketChips = memo(function MarketChips() {
   )
 })
 
+// ─── KPI Block ────────────────────────────────────────────────────────────────
+
+const KpiBlock = memo(function KpiBlock() {
+  return (
+    <div className="fthinatora-kpi">
+      <div className="fthinatora-kpi-inner">
+        <div className="fthinatora-kpi-label">Μέση εξοικονόμηση σήμερα</div>
+        <div className="fthinatora-kpi-value">12.84€</div>
+        <div className="fthinatora-kpi-sub">σε σύγκριση με το ακριβότερο καλάθι</div>
+      </div>
+    </div>
+  )
+})
+
 // ─── SearchSection ────────────────────────────────────────────────────────────
 
 function SearchSection({ query, setQuery, loading, onClear, results, onSelect, searchError }) {
@@ -43,7 +65,7 @@ function SearchSection({ query, setQuery, loading, onClear, results, onSelect, s
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Πληκτρολόγησε προϊόν ή brand..."
+            placeholder="Γράψε γάλα, καφές, μακαρόνια..."
             aria-label="Αναζήτηση προϊόντος"
             className="focus-ring"
           />
@@ -61,10 +83,7 @@ function SearchSection({ query, setQuery, loading, onClear, results, onSelect, s
           <ul className="search-dropdown" role="listbox">
             {results.map((product) => (
               <li key={product.id} role="option">
-                <button
-                  className="search-result-btn focus-ring"
-                  onClick={() => onSelect(product)}
-                >
+                <button className="search-result-btn focus-ring" onClick={() => onSelect(product)}>
                   <span className="result-name">{product.name}</span>
                   <span className="result-cat">{product.category}</span>
                 </button>
@@ -84,9 +103,7 @@ function OffersStrip({ offers, loadingOffers }) {
     <div className="offers-strip">
       <div className="skeleton skeleton-title" />
       <div className="offers-grid">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="skeleton skeleton-card" />
-        ))}
+        {[1,2,3].map((i) => <div key={i} className="skeleton skeleton-card" />)}
       </div>
     </div>
   )
@@ -98,7 +115,7 @@ function OffersStrip({ offers, loadingOffers }) {
         Μεγαλύτερες μειώσεις σήμερα
       </div>
       <div className="offers-grid">
-        {offers.slice(0, 3).map((offer, idx) => (
+        {offers.slice(0,3).map((offer, idx) => (
           <div key={offer.id} className="offer-card animate-slide-up" style={{ animationDelay: `${idx * 0.08}s` }}>
             {offer.oldPrice && (
               <span className="offer-discount">
@@ -120,28 +137,48 @@ function OffersStrip({ offers, loadingOffers }) {
 
 // ─── PriceCard ────────────────────────────────────────────────────────────────
 
-function PriceCard({ selected, prices, loadingPrices, priceError, onAddToBasket }) {
+function PriceCard({ selected, prices, loadingPrices, priceError, onAddToBasket, onSuggestionClick }) {
+  const [justAdded, setJustAdded] = useState(false)
+
+  const handleAdd = () => {
+    onAddToBasket()
+    setJustAdded(true)
+    setTimeout(() => setJustAdded(false), 1800)
+  }
+
   if (!selected && !loadingPrices) return (
-    <div className="empty-state">
+    <div className="empty-state" id="price-card-section">
       <i className="ti ti-search" aria-hidden="true" />
       <p>Αναζήτησε ένα προϊόν για να δεις τιμές</p>
+      <div className="empty-suggestions">
+        <span className="empty-suggestions-label">Δοκίμασε:</span>
+        {QUICK_SUGGESTIONS.map((s) => (
+          <button key={s} className="suggestion-btn focus-ring" onClick={() => onSuggestionClick(s)}>
+            {s}
+          </button>
+        ))}
+      </div>
     </div>
   )
+
   if (loadingPrices) return (
-    <div className="price-card">
+    <div className="price-card" id="price-card-section">
       {[1,2,3,4,5].map((i) => <div key={i} className="skeleton skeleton-row" />)}
     </div>
   )
+
   if (priceError) return (
-    <div className="price-card"><p className="error-text">{priceError}</p></div>
+    <div className="price-card" id="price-card-section">
+      <p className="error-text">{priceError}</p>
+    </div>
   )
 
-  const maxPrice = prices[prices.length - 1]?.currentPrice || 1
+  const maxPrice    = prices[prices.length - 1]?.currentPrice || 1
   const greekPrices = prices.filter((p) => !p.isEuropean)
   const euPrices    = prices.filter((p) => p.isEuropean)
 
   return (
-    <div className="price-card animate-fade-in">
+    <div className="price-card animate-fade-in" id="price-card-section">
       <div className="card-head">
         <div>
           <div className="prod-name">{selected.name}</div>
@@ -183,8 +220,12 @@ function PriceCard({ selected, prices, loadingPrices, priceError, onAddToBasket 
           </>
         )}
       </div>
-      <button className="btn-add focus-ring" onClick={onAddToBasket}>
-        + Προσθήκη στο Έξυπνο Καλάθι
+      <button
+        className={`btn-add focus-ring ${justAdded ? 'btn-add-success' : ''}`}
+        onClick={handleAdd}
+        disabled={justAdded}
+      >
+        {justAdded ? '✓ Προστέθηκε στο καλάθι!' : '+ Προσθήκη στο Έξυπνο Καλάθι'}
       </button>
     </div>
   )
@@ -197,7 +238,7 @@ function BasketPanel({ basket }) {
     items, isEmpty, itemCount, isStale,
     rankedSupermarkets, savings, savingsPercent,
     hasTotals, loading, totalItemsValue,
-    updateQuantity, clearBasket, compareBasket,
+    updateQuantity, removeItem, clearBasket, compareBasket,
   } = basket
 
   const maxTotal = rankedSupermarkets[rankedSupermarkets.length - 1]?.total || 1
@@ -214,14 +255,15 @@ function BasketPanel({ basket }) {
           <button className="clear-link focus-ring" onClick={clearBasket}>Καθαρισμός</button>
         )}
       </div>
-      {isEmpty && (
-        <p className="basket-hint">
-          <i className="ti ti-info-circle" aria-hidden="true" />
-          Πρόσθεσε πολλά προϊόντα και δες πού κοστίζει λιγότερο το σύνολο
-        </p>
-      )}
+
       {isEmpty ? (
-        <p className="basket-empty">Πρόσθεσε προϊόντα για σύγκριση τιμών</p>
+        <>
+          <p className="basket-empty">Πρόσθεσε προϊόντα για σύγκριση τιμών</p>
+          <p className="basket-hint">
+            <i className="ti ti-info-circle" aria-hidden="true" />
+            Πρόσθεσε πολλά προϊόντα και δες πού κοστίζει λιγότερο το σύνολο
+          </p>
+        </>
       ) : (
         <>
           <div className="basket-items">
@@ -233,6 +275,9 @@ function BasketPanel({ basket }) {
                   <span>{item.quantity}</span>
                   <button className="focus-ring" onClick={() => updateQuantity(item.id, item.quantity + 1)} aria-label="Αύξηση">+</button>
                 </div>
+                <button className="btn-remove focus-ring" onClick={() => removeItem(item.id)} aria-label="Αφαίρεση">
+                  <i className="ti ti-trash" aria-hidden="true" />
+                </button>
               </div>
             ))}
           </div>
@@ -248,12 +293,13 @@ function BasketPanel({ basket }) {
           {isStale && hasTotals && <p className="stale-notice">⚠️ Το καλάθι άλλαξε — πάτα ενημέρωση</p>}
         </>
       )}
+
       {hasTotals && !isStale && (
         <>
           <div className="savings-banner animate-fade-in">
             <div>
               <div className="sav-amt">{savings.toFixed(2)}€</div>
-              <div className="sav-label">Εκτιμώμενη εβδομαδιαία εξοικονόμηση</div>
+              <div className="sav-label">Εκτιμώμενη εξοικονόμηση</div>
               <div className="sav-subtitle">σε σχέση με ακριβότερο supermarket</div>
             </div>
             <span className="sav-pct">-{savingsPercent}%</span>
@@ -284,7 +330,7 @@ const TrustSection = memo(function TrustSection() {
       <div className="trust-title">Γιατί να εμπιστευτείς το Φθηνά Τώρα</div>
       <div className="trust-items">
         <div className="trust-item-card"><i className="ti ti-check" aria-hidden="true" />Δεδομένα από PosoKanei (Gov.gr)</div>
-        <div className="trust-item-card"><i className="ti ti-check" aria-hidden="true" />Ενημέρωση κάθε πρωί στις 10:00</div>
+        <div className="trust-item-card"><i className="ti ti-check" aria-hidden="true" />Καθημερινή ενημέρωση τιμών</div>
         <div className="trust-item-card"><i className="ti ti-check" aria-hidden="true" />Σύγκριση 7 ελληνικών αλυσίδων</div>
         <div className="trust-item-card"><i className="ti ti-check" aria-hidden="true" />Χωρίς διαφημιζόμενες τιμές</div>
       </div>
@@ -308,13 +354,19 @@ export default function FthinaToraPage() {
     selectProduct, clearSearch,
   } = products
 
+  const handleSuggestionClick = (suggestion) => {
+    setQuery(suggestion)
+  }
+
   return (
     <main className="fthinatora-page animate-page-in">
 
-      {/* PortifyHeader — nav + hero */}
       <PortifyHeader serviceId="fthinatora" />
 
-      {/* Search bar — κάτω από το hero */}
+      {/* KPI Block */}
+      <KpiBlock />
+
+      {/* Search */}
       <SearchSection
         query={query}
         setQuery={setQuery}
@@ -337,7 +389,7 @@ export default function FthinaToraPage() {
         </div>
         <div className="trust-item">
           <i className="ti ti-database" aria-hidden="true" />
-          <span>Τιμές σε <strong>πραγματικό χρόνο</strong></span>
+          <span><strong>Καθημερινή</strong> ενημέρωση</span>
         </div>
       </div>
 
@@ -353,6 +405,19 @@ export default function FthinaToraPage() {
         <div className="step"><span className="step-num">3</span>Δες πού συμφέρει</div>
       </div>
 
+      {/* Sticky progress */}
+      {basket.itemCount > 0 && (
+        <div className="sticky-progress">
+          <span><strong>{basket.itemCount}</strong> προϊόντα στο καλάθι</span>
+          <button
+            className="focus-ring"
+            onClick={() => document.querySelector('.basket-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          >
+            Δες σύγκριση →
+          </button>
+        </div>
+      )}
+
       {/* Offers */}
       <OffersStrip offers={offers} loadingOffers={loadingOffers} />
 
@@ -364,11 +429,11 @@ export default function FthinaToraPage() {
           loadingPrices={loadingPrices}
           priceError={priceError}
           onAddToBasket={() => selected && basket.addItem(selected)}
+          onSuggestionClick={handleSuggestionClick}
         />
         <BasketPanel basket={basket} />
       </div>
 
-      {/* Trust section */}
       <TrustSection />
 
     </main>
