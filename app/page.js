@@ -45,6 +45,29 @@ function AnimatedCounter({ value, suffix = "" }) {
 
 function ServiceTile({ service, tileRef, large, small, fullWidth }) {
   const nameParts = service.name.split('\n');
+  const [news, setNews] = useState([]);
+  const [current, setCurrent] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    if (service.id !== 'molis-tora') return;
+    fetch('/api/latest-news')
+      .then(r => r.json())
+      .then(data => setNews(data))
+      .catch(() => {});
+  }, [service.id]);
+
+  useEffect(() => {
+    if (service.id !== 'molis-tora' || news.length === 0) return;
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setCurrent(prev => (prev + 1) % news.length);
+        setFade(true);
+      }, 400);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [news, service.id]);
 
   if (service.comingSoon) {
     return (
@@ -66,51 +89,51 @@ function ServiceTile({ service, tileRef, large, small, fullWidth }) {
     );
   }
 
+  const currentNews = news[current];
+
   return (
     <Link
       href={service.href}
       ref={tileRef}
       className="service-tile focus-ring"
-      style={{
-        gridArea: service.gridArea,
-        background: service.bg,
-        color: service.color,
-      }}
+      style={{ gridArea: service.gridArea, background: service.bg, color: service.color }}
     >
       <div className="service-tile-inner">
         <div>
-          <div
-            className="service-tile-name"
+          <div className="service-tile-name"
             style={{
-              fontSize: large
-                ? 'clamp(1.8rem,3.5vw,2.6rem)'
-                : small
-                ? '1rem'
-                : fullWidth
-                ? 'clamp(1.5rem,3vw,2rem)'
-                : '1.3rem',
-            }}
-          >
+              fontSize: large ? 'clamp(1.8rem,3.5vw,2.6rem)' : small ? '1rem' : fullWidth ? 'clamp(1.5rem,3vw,2rem)' : '1.3rem',
+            }}>
             {nameParts.map((part, i) => (
               <span key={i}>{part}{i < nameParts.length - 1 && <br />}</span>
             ))}
           </div>
-          <div className="service-tile-cat" style={{ color: service.subColor }}>
-            {service.category}
-          </div>
-          {service.description && (
-            <div className="service-tile-desc" style={{ color: service.subColor }}>
-              {service.description}
-            </div>
+          <div className="service-tile-cat" style={{ color: service.subColor }}>{service.category}</div>
+          {service.description && !currentNews && (
+            <div className="service-tile-desc" style={{ color: service.subColor }}>{service.description}</div>
           )}
         </div>
-
-
       </div>
 
-      <div className="service-tile-arrow" style={{ color: service.arrowColor }}>
-        →
-      </div>
+      {service.id === 'molis-tora' && currentNews && (
+        <div style={{
+          opacity: fade ? 1 : 0,
+          transition: 'opacity 0.4s ease',
+          position: 'absolute',
+          bottom: 40,
+          left: 24,
+          right: 24,
+        }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: service.subColor, marginBottom: 4 }}>
+            {currentNews.source}
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: service.color, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
+            {currentNews.title}
+          </div>
+        </div>
+      )}
+
+      <div className="service-tile-arrow" style={{ color: service.arrowColor }}>→</div>
     </Link>
   );
 }
